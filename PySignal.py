@@ -2,7 +2,7 @@ __author__ = "Dhruv Govil"
 __copyright__ = "Copyright 2016, Dhruv Govil"
 __credits__ = ["Dhruv Govil", "John Hood", "Jason Viloria", "Adric Worley", "Alex Widener"]
 __license__ = "MIT"
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 __maintainer__ = "Dhruv Govil"
 __email__ = "dhruvagovil@gmail.com"
 __status__ = "Beta"
@@ -116,7 +116,7 @@ class Signal(object):
             if not slot:
                 continue
             elif isinstance(slot, partial):
-                slot()
+                slot(*args, **kwargs)
             elif isinstance(slot, weakref.WeakKeyDictionary):
                 # For class methods, get the class object and call the method accordingly.
                 for obj, method in slot.items():
