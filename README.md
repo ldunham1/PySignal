@@ -1,26 +1,26 @@
 # PySignal
 
-[![Build Status](https://travis-ci.org/dgovil/PySignal.svg?branch=master)](https://travis-ci.org/dgovil/PySignal)
+[![Build Status](https://travis-ci.org/ldunham1/PySignal.svg?branch=master)](https://travis-ci.org/ldunham1/PySignal)
 
-**Deprecated**: I realize this library is used by a few people, but due to contractual limitations, I cannot currently maintain it. I recommend forking and developing the fork if possible. I apologize for the inconvenience.
+Continuing development and maintenance on the now deprecated [PySignal](https://github.com/dgovil/PySignal) project.
 
-For prior contributions to this repo, I made my contributions/submissions to this project solely in my personal capacity and am not conveying any rights to any intellectual property of any third parties.
+Huge thanks to PySignal's creator and maintainer - [Dhruv Govil](https://github.com/dgovil).
 
 -----
 
 A Qt style signal implementation that doesn't require QObjects.
 This supports class methods, functions, lambdas and partials.
 
-Signals can either be created on the instance or on the class, and can be handled either as objects or by string name.
-Unlike PyQt signals, PySignals do not enforce types by default as I believe this is more pythonic.
+Signals can either be created on the instance, class or module, and can be handled either as objects or by string name.
+Unlike PyQt signals, PySignals do not enforce types by default as it is considered to be more pythonic.
 
 Available under the MIT license.
 
-Check out my website too for more programming and film related content: http://dgovil.com/
+Check out Dhruv's website too for more programming and film related content: http://dgovil.com/
 
 ## Install
 
-You can install this using pip, though the version on Pypi is outdated
+You can install this using pip, though the version on Pypi is outdated.
 
 ```bash
 pip install PySignal
@@ -34,12 +34,12 @@ This is compatible with Python 2.7+ and 3.x
 def greet(name):
     print "Hello,", name
 
+
 class Foo(object):
     started = ClassSignal()
     classSignalFactory = ClassSignalFactory()
     classSignalFactory.register('Greet')
     
-
     def __init__(self):
         super(Foo, self).__init__()
         self.started.connect(greet)
@@ -56,6 +56,7 @@ class Foo(object):
         ended = Signal()
         ended.connect(greet)
         ended.emit('Mycroft')
+
 
 foo = Foo()
 # Hello, Watson
@@ -76,9 +77,9 @@ There are 4 types of Signals included
 
 ## Why Signals?
 
-Signals allow for creating a callback interface on your object and allows for it to be extended without needing to make a new inherited class.
+Signals allow for creating a callback interface on an object and allows for it to be extended without needing to make a new inherited class.
 
-For example I can define the following
+For example we can define the following
 
 ```python
 class Foo(object):
@@ -94,7 +95,7 @@ class Foo(object):
 This does a few things:
 
 * It guarantees that any instances of Foo or it's subclasses will always have the started and ended Signals. This allows for a guaranteed interface.
-* It means that when we want to add callbacks to Foo, we can do so on a case by case basis without having to subclass it to call the slots explicitly.
+* It means that when we want to add callbacks to Foo, we can do so on a case-by-case basis without having to subclass it to call the slots explicitly.
 
 For example:
 
@@ -126,38 +127,37 @@ Instead of having to subclass `Foo` and implement the new behavior, we can simpl
 
 ## What's missing?
 
-The goal of this library is to mimic Qt's callback system without requiring all either end of the signal/slot to be a QObject derivative.
+The goal of this library is to mimic Qt's callback system without requiring either end of the signal/slot to be a QObject derivative.
 
 That said in the current state it is missing the following features:
 
 * It does not handle multiple threads. The slots are called in the same thread as the signal.
   This is because I am currently not aware of a way to do this in Python without implementing an equivalent to QObject which I am trying to avoid.
 * There is no type checking. Qt requires signals to declare the type of the data they emit. This is great for C++ but I feel it's not very pythonic and so do not implement that behavior.
-* You can only query the calling function/method. In Qt you can check what object sent a signal. Again this relies on inheriting from a QObject and Qt managing states, which are somethings I was trying to avoid. You can easily retrieve the owner of the "sender", whether it's an object or module. Another, clearer alternative is that you can send `self` as the first parameter of the signal. e.g. `signal.emit(self, arg1, arg2)` and the slot will need to expect the first argument to be the sender.
 
-If anyone has any suggestions or solutions on how I can overcome these caveats, I'm all ears and very willing to implement it or accept pull requests from other people too
+If anyone has any suggestions or solutions on how these caveats can be overcome, feel free to raise issues or create pull requests. Communication will always be welcome and open.
 
 ## Comparisons To Other Libraries
 
-There are a few other libraries to compare with that implement Signals. I am not completely familiar with them so please correct me if I am wrong.
+There are a few other libraries to compare with that implement Signals. Please contact for corrections if there is any incorrect or misleading information.
 These may serve your purposes better depending on what you are doing. The goal of PySignal is first and foremost to be a Qt style signal slot system so the comparisons are written with that in mind.
 
 ### [Blinker](https://github.com/jek/blinker)
 
 Blinker appears to implement a very similar signal to slot mechanism. It is inspired by the django signal system.
 
-+ It has a few more convenience methods like temporary connections and the ability to handle dispatch logic based on input
-- It does not try and keep the Qt interface naming since it prefers the django system instead
-- It does not appear to support partials and lambdas
++ It has a few more convenience methods like temporary connections and the ability to handle dispatch logic based on input.
+- It does not try and keep the Qt interface naming since it prefers the django system instead.
+- It does not appear to support partials and lambdas.
 
 ### [SmokeSignal](https://github.com/shaunduncan/smokesignal/)
 
 SmokeSignal is another django inspired signal system.
 
 * It has a decorator based interface with a focus on slots rather than signals. ie slots listen for a signal rather than a signal calling a list of slots.
-+ It has support for one time calls
++ It has support for one time calls.
 + It supports contexts that can fire signals on entry and exit.
-- It does not implement a Qt style signal slot interface
+- It does not implement a Qt style signal slot interface.
 - It does not appear to support partials and lambdas.
 
 ## Changelog
@@ -188,9 +188,10 @@ http://www.jnvilo.com/cms/programming/python/programming-in-python/signal-and-sl
 
 http://www.codeheadwords.com/2015/05/05/emulating-pyqt-signals-with-descriptors
 
+
 ## Contributors
 
 Many thanks to:
 
-* Alex Widener for cleaning up my setup.py
+* Alex Widener for cleaning up setup.py
 * Adric Worley for expanding test coverage, cleaning up the code and fixing a duplicate connection bug.
