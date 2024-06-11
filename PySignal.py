@@ -1,22 +1,20 @@
 __author__ = "Dhruv Govil"
 __copyright__ = "Copyright 2016, Dhruv Govil"
-__credits__ = ["Dhruv Govil", "John Hood", "Jason Viloria", "Adric Worley", "Alex Widener"]
+__credits__ = ["Dhruv Govil", "John Hood", "Jason Viloria", "Adric Worley", "Alex Widener", "Lee Dunham"]
 __license__ = "MIT"
 __version__ = "1.1.4"
 __maintainer__ = "Dhruv Govil"
 __email__ = "dhruvagovil@gmail.com"
 __status__ = "Beta"
 
+from functools import partial
 import inspect
 import sys
 import weakref
-from functools import partial
-
 
 # weakref.WeakMethod backport
 try:
     from weakref import WeakMethod
-
 except ImportError:
     import types
 
@@ -27,10 +25,8 @@ except ImportError:
             if inspect.ismethod(func):
                 self._obj = weakref.ref(func.__self__)
                 self._func = weakref.ref(func.__func__)
-
             else:
                 self._obj = None
-
                 try:
                     self._func = weakref.ref(func.__func__)
 
@@ -45,25 +41,26 @@ except ImportError:
                 func = self._func()
                 if func is None or obj is None:
                     return None
-
-                else:
-                    return types.MethodType(func, obj, obj.__class__)
-
+                return types.MethodType(func, obj, obj.__class__)
             elif self._func is not None:
                 return self._func()
-
-            else:
-                return None
+            return None
 
         def __eq__(self, other):
             try:
                 return type(self) is type(other) and self() == other()
-
             except Exception:
                 return False
 
         def __ne__(self, other):
             return not self.__eq__(other)
+
+
+# Py 2/3 compat
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 class Signal(object):
@@ -95,7 +92,6 @@ class Signal(object):
             # Faster to try/catch than checking for 'self'
             try:
                 return getattr(prev_frame.f_locals['self'], func_name)
-
             except KeyError:
                 return getattr(inspect.getmodule(prev_frame), func_name)
 
@@ -196,7 +192,6 @@ class Signal(object):
         """Return the callable responsible for emitting the signal, if found."""
         try:
             return self._sender()
-
         except TypeError:
             return None
 
@@ -268,16 +263,10 @@ class SignalFactory(dict):
         :param signals: defaults to all signals. Accepts either a single string or a list of strings
         :param isBlocked: the state to set the signal to
         """
-        if signals:
-            try:
-                if isinstance(signals, basestring):
-                    signals = [signals]
-            except NameError:
-                if isinstance(signals, str):
-                    signals = [signals]
+        if signals and isinstance(signals, basestring):
+            signals = [signals]
 
         signals = signals or self.keys()
-
         for signal in signals:
             if signal not in self:
                 raise RuntimeError("Could not find signal matching %s" % signal)
