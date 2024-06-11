@@ -408,6 +408,8 @@ class SignalFactoryTest(unittest.TestCase, SignalTestMixin):
         toFail.cSignalFactory['Spam'].connect(self.throwaway)
         toSucceed.cSignalFactory['Spam'].emit(1)
         toFail.cSignalFactory['Spam'].emit(2)
+        toSucceed.cSignalFactory['Spam'].wait()
+        toFail.cSignalFactory['Spam'].wait()
         self.assertEqual(self.checkval, 1)
 
 
@@ -435,6 +437,7 @@ class ClassSignalFactoryTest(unittest.TestCase, SignalTestMixin):
         dummy.signalFactory.register('Spam')
         dummy.signalFactory.connect('Spam', self.setVal)
         dummy.signalFactory.emit('Spam', 1)
+        dummy.signalFactory['Spam'].wait()
         self.assertEqual(self.checkval, 1)
         self.assertEqual(self.setVal_call_count, 1)
 
@@ -450,6 +453,7 @@ class ClassSignalFactoryTest(unittest.TestCase, SignalTestMixin):
         toSucceed.signalFactory.register('Spam')
         toSucceed.signalFactory['Spam'].connect(self.setVal)
         toSucceed.signalFactory['Spam'].emit(1)
+        toSucceed.signalFactory['Spam'].wait()
         self.assertEqual(self.checkval, 1)
 
     def test_BlockSingle(self):
@@ -460,6 +464,8 @@ class ClassSignalFactoryTest(unittest.TestCase, SignalTestMixin):
         dummy.signalFactory.block('Spam')
         dummy.signalFactory.emit('Spam', 1)
         dummy.signalFactory.emit('Eggs', 2)
+        dummy.signalFactory['Eggs'].wait()
+        dummy.signalFactory['Spam'].wait()
         self.assertEqual(self.checkval, None)
         self.assertEqual(self.checkval2, 2)
 
@@ -472,6 +478,8 @@ class ClassSignalFactoryTest(unittest.TestCase, SignalTestMixin):
         dummy.signalFactory.block('Spam', False)
         dummy.signalFactory.emit('Spam', 1)
         dummy.signalFactory.emit('Eggs', 2)
+        dummy.signalFactory['Spam'].wait()
+        dummy.signalFactory['Eggs'].wait()
         self.assertEqual(self.checkval, 1)
         self.assertEqual(self.checkval2, 2)
 
@@ -495,6 +503,8 @@ class ClassSignalFactoryTest(unittest.TestCase, SignalTestMixin):
         dummy.signalFactory.block(isBlocked=False)
         dummy.signalFactory.emit('Spam', 1)
         dummy.signalFactory.emit('Eggs', 2)
+        dummy.signalFactory['Eggs'].wait()
+        dummy.signalFactory['Spam'].wait()
         self.assertEqual(self.checkval, 1)
         self.assertEqual(self.checkval2, 2)
 

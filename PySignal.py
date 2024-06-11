@@ -10,7 +10,14 @@ __status__ = "Beta"
 from functools import partial
 import inspect
 import sys
+import threading
+import time
 import weakref
+
+if sys.version_info >= (3, 5):
+    from queue import Queue
+else:
+    from Queue import Queue
 
 # weakref.WeakMethod backport
 try:
@@ -73,9 +80,33 @@ class Signal(object):
         self._block = False
         self._sender = None
         self._slots = []
+        self._lock = threading.Lock()
         
     def __call__(self, *args, **kwargs):
         self.emit(*args, **kwargs)
+
+    def _callSlot(self, slot, *args, **kwargs):
+        if not slot:
+            return
+
+        if isinstance(slot, partial):
+            slot(*args, **kwargs)
+        elif isinstance(slot, weakref.WeakKeyDictionary):
+            # For class methods, get the class object and call the method accordingly.
+            for obj, method in slot.items():
+                method(obj, *args, **kwargs)
+        elif isinstance(slot, weakref.ref):
+            # If it's a weakref, call the ref to get the instance and then call the func
+            # Don't wrap in try/except so we don't risk masking exceptions from the actual func call
+            tested_slot = slot()
+            if tested_slot is not None:
+                tested_slot(*args, **kwargs)
+        else:
+            # Else call it in a standard way. Should be just lambdas at this point
+            slot(*args, **kwargs)
+
+    def _emitSlot(self, slot, *args, **kwargs):
+        self._callSlot(slot, *args, **kwargs)
 
     def emit(self, *args, **kwargs):
         """
@@ -108,24 +139,10 @@ class Signal(object):
         except TypeError:
             self._sender = None
 
-        for slot in self._slots:
-            if not slot:
-                continue
-            elif isinstance(slot, partial):
-                slot(*args, **kwargs)
-            elif isinstance(slot, weakref.WeakKeyDictionary):
-                # For class methods, get the class object and call the method accordingly.
-                for obj, method in slot.items():
-                    method(obj, *args, **kwargs)
-            elif isinstance(slot, weakref.ref):
-                # If it's a weakref, call the ref to get the instance and then call the func
-                # Don't wrap in try/except so we don't risk masking exceptions from the actual func call
-                tested_slot = slot()
-                if tested_slot is not None:
-                    tested_slot(*args, **kwargs)
-            else:
-                # Else call it in a standard way. Should be just lambdas at this point
-                slot(*args, **kwargs)
+        with self._lock:
+            slots = self._slots.copy()  # Avoid potential for external modification
+            for slot in slots:
+                self._emitSlot(slot, *args, **kwargs)
 
     def connect(self, slot):
         """
@@ -134,22 +151,26 @@ class Signal(object):
         if not callable(slot):
             raise ValueError("Connection to non-callable '%s' object failed" % slot.__class__.__name__)
 
-        if isinstance(slot, (partial, Signal)) or '<' in slot.__name__:
+        with self._lock:
+
             # If it's a partial, a Signal or a lambda. The '<' check is the only py2 and py3 compatible way I could find
-            if slot not in self._slots:
-                self._slots.append(slot)
-        elif inspect.ismethod(slot):
+            if isinstance(slot, (partial, Signal)) or '<' in slot.__name__:
+                if slot not in self._slots:
+                    self._slots.append(slot)
+
             # Check if it's an instance method and store it with the instance as the key
-            slotSelf = slot.__self__
-            slotDict = weakref.WeakKeyDictionary()
-            slotDict[slotSelf] = slot.__func__
-            if slotDict not in self._slots:
-                self._slots.append(slotDict)
-        else:
+            elif inspect.ismethod(slot):
+                slotSelf = slot.__self__
+                slotDict = weakref.WeakKeyDictionary()
+                slotDict[slotSelf] = slot.__func__
+                if slotDict not in self._slots:
+                    self._slots.append(slotDict)
+
             # If it's just a function then just store it as a weakref.
-            newSlotRef = weakref.ref(slot)
-            if newSlotRef not in self._slots:
-                self._slots.append(newSlotRef)
+            else:
+                newSlotRef = weakref.ref(slot)
+                if newSlotRef not in self._slots:
+                    self._slots.append(newSlotRef)
 
     def disconnect(self, slot):
         """
@@ -158,35 +179,38 @@ class Signal(object):
         if not callable(slot):
             return
 
-        if inspect.ismethod(slot):
-            # If it's a method, then find it by its instance
-            slotSelf = slot.__self__
-            for s in self._slots:
-                if (isinstance(s, weakref.WeakKeyDictionary) and
-                        (slotSelf in s) and
-                        (s[slotSelf] is slot.__func__)):
-                    self._slots.remove(s)
-                    break
-        elif isinstance(slot, (partial, Signal)) or '<' in slot.__name__:
-            # If it's a partial, a Signal or lambda, try to remove directly
-            try:
-                self._slots.remove(slot)
-            except ValueError:
-                pass
-        else:
-            # It's probably a function, so try to remove by weakref
-            try:
-                self._slots.remove(weakref.ref(slot))
-            except ValueError:
-                pass
+        with self._lock:
+            if inspect.ismethod(slot):
+                # If it's a method, then find it by its instance
+                slotSelf = slot.__self__
+                for s in self._slots:
+                    if (isinstance(s, weakref.WeakKeyDictionary) and
+                            (slotSelf in s) and
+                            (s[slotSelf] is slot.__func__)):
+                        self._slots.remove(s)
+                        break
+            elif isinstance(slot, (partial, Signal)) or '<' in slot.__name__:
+                # If it's a partial, a Signal or lambda, try to remove directly
+                try:
+                    self._slots.remove(slot)
+                except ValueError:
+                    pass
+            else:
+                # It's probably a function, so try to remove by weakref
+                try:
+                    self._slots.remove(weakref.ref(slot))
+                except ValueError:
+                    pass
 
     def clear(self):
         """Clears the signal of all connected slots"""
-        self._slots = []
+        with self._lock:
+            del self._slots[:]
 
     def block(self, isBlocked):
         """Sets blocking of the signal"""
-        self._block = bool(isBlocked)
+        with self._lock:
+            self._block = bool(isBlocked)
 
     def sender(self):
         """Return the callable responsible for emitting the signal, if found."""
@@ -194,6 +218,33 @@ class Signal(object):
             return self._sender()
         except TypeError:
             return None
+
+
+class QueuedSignal(Signal):
+    def __init__(self):
+        super(QueuedSignal, self).__init__()
+        self._queue = Queue()
+        self._worker = threading.Thread(target=self._onWork)
+        self._worker.start()
+
+    def _onWork(self):
+        while True:
+            task = self._queue.get()
+            if task is None:
+                break
+            slot, args, kwargs = task
+            self._callSlot(slot, *args, **kwargs)
+            self._queue.task_done()
+
+    def _emitSlot(self, slot, *args, **kwargs):
+        self._queue.put((slot, args, kwargs))
+
+    def queueEmpty(self):
+        return self._queue.empty()
+
+    def wait(self):
+        while not self._queue.empty():
+            time.sleep(0.1)
 
 
 class ClassSignal(object):
@@ -209,7 +260,7 @@ class ClassSignal(object):
             # we return the ClassSignal itself
             return self
         tmp = self._map.setdefault(self, weakref.WeakKeyDictionary())
-        return tmp.setdefault(instance, Signal())
+        return tmp.setdefault(instance, QueuedSignal())
 
     def __set__(self, instance, value):
         raise RuntimeError("Cannot assign to a Signal object")
@@ -227,7 +278,7 @@ class SignalFactory(dict):
         """
         # setdefault initializes the object even if it exists. This is more efficient
         if name not in self:
-            self[name] = Signal()
+            self[name] = QueuedSignal()
 
         for slot in slots:
             self[name].connect(slot)
